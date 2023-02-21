@@ -13,7 +13,7 @@ function apiRequest($url, $post=FALSE, $headers=array()) {
 
   $headers = [
     'Accept: application/vnd.github.v3+json, application/json',
-    'User-Agent: https://example-app.com/'
+    'User-Agent: http://localhost:4200'
   ];
 
   if(isset($_SESSION['access_token']))
@@ -40,9 +40,9 @@ $tokenURL = 'https://github.com/login/oauth/access_token';
 $apiURLBase = 'https://api.github.com/';
 
 // The URL for this script, used as the redirect URL
-//$baseURL = 'https://' . $_SERVER['SERVER_NAME']
+//$baseURL = 'http://' . $_SERVER['SERVER_NAME']
 //    . $_SERVER['PHP_SELF'];
-$baseURL = 'http://localhost:4200/callback';
+$baseURL = 'http://localhost:4200';
 
 // Start a session so we have a place to
 // store things between redirects
@@ -80,6 +80,31 @@ if(isset($_GET['action']) && $_GET['action'] == 'login') {
 
     // Redirect the user to GitHub's authorization page
     header('Location: '.$authorizeURL.'?'.http_build_query($params));
+    die();
+}
+
+// When GitHub redirects the user back here,
+// there will be a "code" and "state" parameter in the query string
+if(isset($_GET['code'])) {
+    // Verify the state matches our stored state
+    if(!isset($_GET['state'])
+        || $_SESSION['state'] != $_GET['state']) {
+
+        header('Location: ' . $baseURL . '?error=invalid_state');
+        die();
+    }
+
+    // Exchange the auth code for an access token
+    $token = apiRequest($tokenURL, array(
+        'grant_type' => 'authorization_code',
+        'client_id' => $githubClientID,
+        'client_secret' => $githubClientSecret,
+        'redirect_uri' => $baseURL,
+        'code' => $_GET['code']
+    ));
+    $_SESSION['access_token'] = $token['access_token'];
+
+    header('Location: ' . $baseURL);
     die();
 }
 
